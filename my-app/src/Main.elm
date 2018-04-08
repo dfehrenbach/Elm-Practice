@@ -1,19 +1,27 @@
 module Main exposing (..)
 
-import Svg exposing (..)
-import Html exposing (Html, div, img)
-import Html.Attributes exposing (src)
-import Svg.Attributes exposing (..)
+import Collage exposing (..)
+import Collage.Layout exposing (..)
+import Collage.Render exposing (..)
+import Html exposing (..)
+import Color exposing (Color, rgba)
+import Svg.Attributes exposing (viewBox, height, width, preserveAspectRatio)
 
 
 ---- MODEL ----
 
 
+colors :
+    { pastel : Float -> Color
+    , skyBlue : Float -> Color
+    , blue : Float -> Color
+    , darkBlue : Float -> Color
+    }
 colors =
-    { gray = "#5a6378"
-    , green = "#83c833"
-    , orange = "#efa500"
-    , blue = "#5fb4ca"
+    { pastel = rgba 226 255 255
+    , skyBlue = rgba 116 172 252
+    , blue = rgba 85 71 235
+    , darkBlue = rgba 14 11 40
     }
 
 
@@ -55,26 +63,26 @@ triangle size =
     ]
 
 
-square : List Point
-square =
+square : Float -> List Point
+square size =
     [ ( 0, 0 )
-    , ( 1, 0 )
-    , ( 1, 1 )
-    , ( 0, 1 )
+    , ( size, 0 )
+    , ( size, size )
+    , ( 0, size )
     ]
 
 
-parallelogram : List Point
-parallelogram =
+parallelogram : Float -> List Point
+parallelogram size =
     [ ( 0, 0 )
-    , ( 1, 0 )
-    , ( 2, -1 )
-    , ( 1, -1 )
+    , ( -size, 0 )
+    , ( -size * 2, -size )
+    , ( -size, -size )
     ]
 
 
-rotate : Float -> List Point -> List Point
-rotate angle ps =
+rot : Float -> List Point -> List Point
+rot angle ps =
     let
         rad =
             degrees angle
@@ -121,73 +129,83 @@ add ( dx, dy ) ps =
     List.map (\( x, y ) -> ( x + dx, y + dy )) ps
 
 
-draw : String -> List Point -> Svg msg
+draw : Color.Color -> List Point -> Collage msg
 draw color ps =
-    polygon
-        [ ps
-            |> List.concatMap (\( x, y ) -> [ x, y ])
-            |> List.map toString
-            |> String.join ","
-            |> points
-        , fill color
-        , stroke "white"
-        , strokeWidth "0.07"
-        ]
-        []
+    ps
+        |> polygon
+        |> styled ( uniform color, solid thick (uniform (Color.rgb 1 0 6)) )
+
+
+logo : Collage msg
+logo =
+    let
+        big1 =
+            triangle 100
+                |> rot (45 + 180)
+
+        big2 =
+            triangle 100
+                |> rot (-45 + 180)
+
+        sm1 =
+            triangle 50
+                |> rot -45
+
+        par =
+            parallelogram 50
+                |> rot (45 + 180)
+                |> snap 1 (to big1 2)
+
+        med1 =
+            triangle (50 * sqrt 2)
+                |> rot 180
+                |> snap 2 (to par 4)
+
+        sq =
+            square 50
+                |> rot 45
+
+        sm2 =
+            triangle 50
+                |> rot 45
+                |> snap 2 (to big2 3)
+    in
+        group
+            [ big1
+                |> draw (colors.darkBlue 0.2)
+            , big2
+                |> draw (colors.blue 0.2)
+            , med1
+                |> draw (colors.blue 0.2)
+            , sm1
+                |> draw (colors.skyBlue 0.2)
+            , par
+                |> draw (colors.pastel 0.2)
+            , sq
+                |> draw (colors.pastel 0.2)
+            , sm2
+                |> draw (colors.skyBlue 0.2)
+            ]
+
+
+logoBox : Collage msg
+logoBox =
+    logo
+        |> scale 0.125
+        |> List.repeat 84
+        |> horizontal
+        |> List.repeat 43
+        |> vertical
 
 
 view : Model -> Html Msg
 view model =
-    let
-        big1 =
-            triangle 2
-                |> rotate (45 + 180)
-
-        big2 =
-            triangle 2
-                |> rotate -45
-
-        sm1 =
-            triangle 1
-                |> rotate (45 + 90)
-
-        par =
-            parallelogram
-                |> rotate -45
-                |> snap 1 (to big1 3)
-
-        med1 =
-            triangle (sqrt 2)
-                |> rotate -90
-                |> snap 3 (to par 4)
-
-        sq =
-            square
-                |> rotate 45
-
-        sm2 =
-            triangle 1
-                |> rotate 45
-                |> snap 3 (to big2 2)
-    in
-        div []
-            [ svg
-                [ viewBox "-3 -3 10 10" ]
-                [ big1
-                    |> draw colors.gray
-                , big2
-                    |> draw colors.blue
-                , sm1
-                    |> draw colors.orange
-                , par
-                    |> draw colors.green
-                , med1
-                    |> draw colors.blue
-                , sq
-                    |> draw colors.green
-                , sm2
-                    |> draw colors.orange
-                ]
+    logoBox
+        |> svgExplicit
+            [ Svg.Attributes.height "100%"
+            , Svg.Attributes.width "100%"
+            , Svg.Attributes.viewBox " -10 -10 1520 800"
+            , Svg.Attributes.preserveAspectRatio "xMinYMin slice"
             ]
 
 
