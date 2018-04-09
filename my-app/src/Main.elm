@@ -1,11 +1,12 @@
 module Main exposing (..)
 
 import Collage exposing (..)
-import Collage.Layout exposing (..)
-import Collage.Render exposing (..)
-import Html exposing (..)
 import Color exposing (Color, rgba)
-import Svg.Attributes exposing (viewBox, height, width, preserveAspectRatio)
+import Element exposing (..)
+import Html exposing (..)
+import Html.Attributes exposing (style)
+import List.Extra as List
+import Random exposing (generate, int, list)
 
 
 ---- MODEL ----
@@ -21,7 +22,7 @@ colors =
     { pastel = rgba 226 255 255
     , skyBlue = rgba 116 172 252
     , blue = rgba 85 71 235
-    , darkBlue = rgba 14 11 40
+    , darkBlue = rgba 14 11 100
     }
 
 
@@ -30,12 +31,18 @@ type alias Point =
 
 
 type alias Model =
-    {}
+    { shuffledLogos : List (List Form)
+    , lineSeeds : List Int
+    }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( {}, Cmd.none )
+    ( { shuffledLogos = []
+      , lineSeeds = []
+      }
+    , generate Shuffle (list 800 (int 0 966))
+    )
 
 
 
@@ -43,12 +50,39 @@ init =
 
 
 type Msg
-    = NoOp
+    = Shuffle (List Int)
+    | Seeding (List Int)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    ( model, Cmd.none )
+    case msg of
+        Shuffle indexes ->
+            ( { model | shuffledLogos = selections indexes }
+            , generate Seeding (list logosTall (int 2 8))
+            )
+
+        Seeding seeds ->
+            ( { model | lineSeeds = seeds }, Cmd.none )
+
+
+selections : List Int -> List (List Form)
+selections indexes =
+    indexes
+        |> List.map
+            (\i ->
+                perms
+                    |> List.getAt i
+                    |> Maybe.withDefault logoShape
+            )
+
+
+perms : List (List Form)
+perms =
+    logoShape
+        |> List.permutations
+        |> List.removeIfIndex
+            (\x -> x % 2 == 0 || x % 3 == 0 || x % 5 == 0 || x % 7 == 0 || x % 11 == 0 || x % 13 == 0)
 
 
 
@@ -129,15 +163,23 @@ add ( dx, dy ) ps =
     List.map (\( x, y ) -> ( x + dx, y + dy )) ps
 
 
-draw : Color.Color -> List Point -> Collage msg
+draw : Color.Color -> List Point -> Form
 draw color ps =
-    ps
-        |> polygon
-        |> styled ( uniform color, solid thick (uniform (Color.rgb 1 0 6)) )
+    let
+        poly =
+            polygon ps
+
+        fpoly =
+            filled color poly
+
+        opoly =
+            outlined { defaultLine | width = 4, color = Color.rgb 1 0 6 } poly
+    in
+        group [ fpoly, opoly ]
 
 
-logo : Collage msg
-logo =
+logoShape : List Form
+logoShape =
     let
         big1 =
             triangle 100
@@ -170,43 +212,97 @@ logo =
                 |> rot 45
                 |> snap 2 (to big2 3)
     in
-        group
-            [ big1
-                |> draw (colors.darkBlue 0.2)
-            , big2
-                |> draw (colors.blue 0.2)
-            , med1
-                |> draw (colors.blue 0.2)
-            , sm1
-                |> draw (colors.skyBlue 0.2)
-            , par
-                |> draw (colors.pastel 0.2)
-            , sq
-                |> draw (colors.pastel 0.2)
-            , sm2
-                |> draw (colors.skyBlue 0.2)
+        [ big1
+            |> draw (colors.darkBlue 0.8)
+        , big2
+            |> draw (colors.blue 0.8)
+        , sm1
+            |> draw (colors.skyBlue 0.8)
+        , par
+            |> draw (colors.pastel 0.8)
+        , sq
+            |> draw (colors.pastel 0.8)
+        , sm2
+            |> draw (colors.skyBlue 0.8)
+        , med1
+            |> draw (colors.blue 0.8)
+        ]
+
+
+logosWide : Int
+logosWide =
+    106
+
+
+logosTall : Int
+logosTall =
+    52
+
+
+logo : Model -> Int -> Int -> Element
+logo model i lineIndex =
+    let
+        lineSeed =
+            model.lineSeeds |> List.getAt lineIndex |> Maybe.withDefault 8
+
+        logoS =
+            model.shuffledLogos |> List.getAt (i + (lineIndex * lineSeed)) |> Maybe.withDefault logoShape
+
+        ratioTall =
+            toFloat lineIndex / toFloat logosTall
+
+        ratioWide =
+            toFloat i / toFloat logosWide
+
+        ratioMax =
+            max ratioTall ratioWide
+
+        takeNum =
+            abs (6 - round (ratioMax * 5))
+
+        trimmed =
+            List.take takeNum logoS
+    in
+        trimmed
+            |> group
+            |> Collage.scale 0.125
+            |> flip (::) []
+            |> collage 18 18
+
+
+calcOpacity : Int -> Element -> Element
+calcOpacity i log =
+    opacity (abs (1 - (toFloat i / toFloat logosWide))) log
+
+
+logoLine : Model -> Int -> Html msg
+logoLine model lineIndex =
+    let
+        line =
+            List.range 1 logosWide
+                |> List.map (\i -> logo model i lineIndex)
+                |> List.indexedMap (calcOpacity)
+                |> flow right
+                |> Element.toHtml
+    in
+        div
+            [ style
+                [ ( "opacity", toString (abs (1 - (toFloat lineIndex / toFloat logosTall))) )
+                ]
             ]
+            [ line ]
 
 
-logoBox : Collage msg
-logoBox =
-    logo
-        |> scale 0.125
-        |> List.repeat 84
-        |> horizontal
-        |> List.repeat 43
-        |> vertical
+constructBox : Model -> List (Html msg)
+constructBox model =
+    List.range 1 logosTall
+        |> List.map (\lineIndex -> logoLine model lineIndex)
 
 
-view : Model -> Html Msg
+view : Model -> Html msg
 view model =
-    logoBox
-        |> svgExplicit
-            [ Svg.Attributes.height "100%"
-            , Svg.Attributes.width "100%"
-            , Svg.Attributes.viewBox " -10 -10 1520 800"
-            , Svg.Attributes.preserveAspectRatio "xMinYMin slice"
-            ]
+    -- logobox2 model |> Element.toHtml
+    div [] (constructBox model)
 
 
 
