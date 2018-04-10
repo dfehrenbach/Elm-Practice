@@ -7,23 +7,34 @@ import Html exposing (..)
 import Html.Attributes exposing (style)
 import List.Extra as List
 import Random exposing (generate, int, list)
+import Color.Convert exposing (hexToColor)
 
 
 ---- MODEL ----
 
 
 colors :
-    { pastel : Float -> Color
-    , skyBlue : Float -> Color
-    , blue : Float -> Color
-    , darkBlue : Float -> Color
+    { pastel : Color
+    , skyBlue : Color
+    , blue : Color
+    , darkBlue : Color
     }
 colors =
-    { pastel = rgba 226 255 255
-    , skyBlue = rgba 116 172 252
-    , blue = rgba 85 71 235
-    , darkBlue = rgba 14 11 100
+    { pastel = hexToColor ("190061" ++ "FF") |> Result.withDefault Color.black --par and square
+    , skyBlue = hexToColor ("3500d3" ++ "FF") |> Result.withDefault Color.black --2 small triangles
+    , blue = hexToColor ("282828" ++ "FF") |> Result.withDefault Color.black --Big & Med triangles
+    , darkBlue = hexToColor ("0c0032" ++ "FF") |> Result.withDefault Color.black --Root Triangle
     }
+
+
+logosWide : Int
+logosWide =
+    106
+
+
+logosTall : Int
+logosTall =
+    50
 
 
 type alias Point =
@@ -213,30 +224,20 @@ logoShape =
                 |> snap 2 (to big2 3)
     in
         [ big1
-            |> draw (colors.darkBlue 0.8)
+            |> draw colors.darkBlue
         , big2
-            |> draw (colors.blue 0.8)
+            |> draw colors.blue
         , sm1
-            |> draw (colors.skyBlue 0.8)
+            |> draw colors.skyBlue
         , par
-            |> draw (colors.pastel 0.8)
+            |> draw colors.pastel
         , sq
-            |> draw (colors.pastel 0.8)
+            |> draw colors.pastel
         , sm2
-            |> draw (colors.skyBlue 0.8)
+            |> draw colors.skyBlue
         , med1
-            |> draw (colors.blue 0.8)
+            |> draw colors.blue
         ]
-
-
-logosWide : Int
-logosWide =
-    106
-
-
-logosTall : Int
-logosTall =
-    52
 
 
 logo : Model -> Int -> Int -> Element
@@ -301,8 +302,25 @@ constructBox model =
 
 view : Model -> Html msg
 view model =
-    -- logobox2 model |> Element.toHtml
-    div [] (constructBox model)
+    div []
+        [ div
+            [ style
+                [ ( "overflow-x", "hidden" )
+                , ( "overflow-y", "auto" )
+                , ( "position", "absolute" )
+                , ( "z-index", "-100" )
+                ]
+            ]
+            (constructBox model)
+        , h1
+            [ style
+                [ ( "color", "#e92c61" )
+                , ( "text-shadow", "0 0 15px #E9A768" )
+                , ( "font-family", "Brush Script Mt, Brush Script Std, cursive" )
+                ]
+            ]
+            [ Html.text "Daniel Fehrenbach" ]
+        ]
 
 
 
