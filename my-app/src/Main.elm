@@ -1,9 +1,9 @@
 module Main exposing (..)
 
-import Collage exposing (..)
+import Collage exposing (Form, polygon, circle, filled, outlined, defaultLine, group, collage, scale)
 import Color exposing (Color, rgba)
-import Element exposing (..)
-import Html exposing (..)
+import Element exposing (Element, opacity, flow, right, toHtml)
+import Html exposing (Html, div, h1)
 import Html.Attributes exposing (style)
 import List.Extra as List
 import Random exposing (generate, int, list)
@@ -93,7 +93,9 @@ perms =
     logoShape
         |> List.permutations
         |> List.removeIfIndex
-            (\x -> x % 2 == 0 || x % 3 == 0 || x % 5 == 0 || x % 7 == 0 || x % 11 == 0 || x % 13 == 0)
+            (\x ->
+                x % 2 == 0 || x % 3 == 0 || x % 5 == 0 || x % 7 == 0 || x % 11 == 0 || x % 13 == 0
+            )
 
 
 
@@ -240,7 +242,7 @@ logoShape =
         ]
 
 
-logo : Model -> Int -> Int -> Element
+logo : Model -> Int -> Int -> Html Msg
 logo model i lineIndex =
     let
         lineSeed =
@@ -263,44 +265,54 @@ logo model i lineIndex =
 
         trimmed =
             List.take takeNum logoS
+
+        logoHtml =
+            trimmed
+                |> group
+                |> scale 0.125
+                |> flip (::) []
+                |> collage 18 18
+                |> Element.toHtml
     in
-        trimmed
-            |> group
-            |> Collage.scale 0.125
-            |> flip (::) []
-            |> collage 18 18
+        div
+            [ style
+                [ ( "display", "inline-block" )
+                , ( "opacity", toString (calcOpacity i) )
+                ]
+            ]
+            [ logoHtml ]
 
 
-calcOpacity : Int -> Element -> Element
-calcOpacity i log =
-    opacity (abs (1 - (toFloat i / toFloat logosWide))) log
+calcOpacity : Int -> Float
+calcOpacity i =
+    abs (1 - (toFloat i / toFloat logosWide))
 
 
-logoLine : Model -> Int -> Html msg
+logoLine : Model -> Int -> Html Msg
 logoLine model lineIndex =
     let
         line =
             List.range 1 logosWide
                 |> List.map (\i -> logo model i lineIndex)
-                |> List.indexedMap (calcOpacity)
-                |> flow right
-                |> Element.toHtml
     in
         div
             [ style
                 [ ( "opacity", toString (abs (1 - (toFloat lineIndex / toFloat logosTall))) )
+                , ( "overflow", "hidden" )
+                , ( "height", "18px" )
+                , ( "white-space", "nowrap" )
                 ]
             ]
-            [ line ]
+            (line)
 
 
-constructBox : Model -> List (Html msg)
+constructBox : Model -> List (Html Msg)
 constructBox model =
     List.range 1 logosTall
         |> List.map (\lineIndex -> logoLine model lineIndex)
 
 
-view : Model -> Html msg
+view : Model -> Html Msg
 view model =
     div []
         [ div
